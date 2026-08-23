@@ -71,7 +71,7 @@ cd njupt-course-auto
 | `query_status.py` | 查询课程各知识点的完成进度 |
 | `exam_questions.json` | 考试题目原文 + 选项 + 答案（存档，供核对） |
 | `config.example.json` | 配置文件模板（复制为 `config.json` 后填写凭证） |
-| `config.json` | 你的本机配置（**已被 .gitignore 忽略，绝不提交**） |
+| `config.json` | 你的本机配置 |
 
 
 ---
