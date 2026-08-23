@@ -20,6 +20,48 @@
 
 ---
 
+## 克隆 / 获取本项目
+
+### 方式一：git clone（推荐）
+
+先确认已安装 **Git**，然后在终端里执行（任选其一）：
+
+**HTTPS 方式（最简单，无需 SSH）**
+```bash
+git clone https://github.com/HClOLyw/njupt-course-auto.git
+cd njupt-course-auto
+```
+
+**SSH 方式（需先在本机配置 SSH 密钥，适合日常开发）**
+```bash
+git clone git@github.com:HClOLyw/njupt-course-auto.git
+cd njupt-course-auto
+```
+
+> 两种方式拉下来的代码完全一致，选一种即可。
+
+### 方式二：直接下载 ZIP（无需 Git）
+
+在仓库页面点击绿色 **Code** 按钮 → **Download ZIP**，解压后即可使用，不必安装 Git。
+
+### 克隆后怎么开始
+
+1. 安装 Python 3.7+（本脚本仅用标准库，**不需要** `pip install` 任何包）。
+2. 复制配置模板：
+   ```bash
+   cp config.example.json config.json      # macOS / Linux
+   copy config.example.json config.json    # Windows
+   ```
+3. 编辑 `config.json`，填入你自己的 `Access-Token`（获取方法见下方「快速开始」）。
+4. 运行脚本：
+   ```bash
+   python njupt_skip.py      # 刷课（自动完成所有视频 / PDF）
+   python query_status.py    # 查看各知识点完成进度
+   python exam_submit.py     # 自动作答考试并提交
+   ```
+
+---
+
 ## 目录结构
 
 | 文件 | 作用 |
