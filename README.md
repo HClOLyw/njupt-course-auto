@@ -204,3 +204,18 @@ export NJUPT_TOKEN=你的token     # macOS / Linux
 3. `config.json` 含你的登录凭证，已被 `.gitignore` 忽略，**请勿将其提交或上传到任何仓库**。
 4. 不同课程的题库 / 知识点可能不同，若换课请重新取题核对答案。
 5. 本项目仅供学习交流，请遵守学校与平台的有关规定。
+
+---
+
+## 来源与致谢
+
+本项目是对开源项目 **[Scwizard/jiangsu-safety-platform-skip](https://github.com/Scwizard/jiangsu-safety-platform-skip)** 的**二次开发**。
+
+- **上游项目**：[Scwizard/jiangsu-safety-platform-skip](https://github.com/Scwizard/jiangsu-safety-platform-skip) ——《“2026 江苏省大学新生安全知识教育”一键完成脚本》
+- **原作者**：Scwizard（南京晓庄学院）
+- **上游许可证**：[Apache License 2.0](./LICENSE)（本项目保留该许可证）
+- **上游项目用途**：针对**江苏省校园安全通平台**（`wap.xiaoyuananquantong.com`）的刷课/刷题脚本，通过数据包重放与题库答案完成课程与考试。
+
+本仓库在原项目的思路上扩展改造为针对**南京邮电大学在线培训平台**（`study.njupt.edu.cn`）的刷课 + 考试脚本：新增 `njupt_skip.py`、`exam_submit.py`、`query_status.py` 等（接口与目标平台均与原项目不同），并保留上游的 `main.py` / `main_login.py` / `utils.py` 作为历史参考。
+
+感谢原作者 **Scwizard** 的开源贡献。若你也喜欢这份思路，欢迎去 [上游仓库](https://github.com/Scwizard/jiangsu-safety-platform-skip) 支持原作者。
