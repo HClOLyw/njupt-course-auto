@@ -72,7 +72,7 @@ cd njupt-course-auto
 | `exam_questions.json` | 考试题目原文 + 选项 + 答案（存档，供核对） |
 | `config.example.json` | 配置文件模板（复制为 `config.json` 后填写凭证） |
 | `config.json` | 你的本机配置（**已被 .gitignore 忽略，绝不提交**） |
-| `main.py` / `main_login.py` / `utils.py` | 上游「江苏省校园安全通」历史脚本（与本平台无关，可忽略） |
+
 
 ---
 
