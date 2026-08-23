@@ -1,0 +1,32 @@
+# ===== 敏感凭证（务必不要提交到仓库) =====
+config.json
+*.token
+*.pem
+.env
+
+# ===== 本地题库 / 数据库 =====
+database.db
+*.db-journal
+
+# ===== 临时抓取的分析产物 =====
+_fetched/
+_exam_chunks/
+*.sample.html
+
+# ===== 调试 / 探针脚本 =====
+probe_*.py
+test_*.py
+analyze_*.py
+fetch_*.py
+dump_*.py
+score_check.py
+
+# ===== Python 缓存 =====
+__pycache__/
+*.pyc
+*.pyo
+
+# ===== 打包产物 =====
+dist/
+*.zip
+*.tar.gz
