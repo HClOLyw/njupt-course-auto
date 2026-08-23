@@ -146,6 +146,11 @@ python exam_submit.py
 脚本会取卷、填答案、经 `saverecords` 提交，再用 `getExamResultDetail` 核对成绩。
 本仓库考试答案为 **满分（100 / 100）**，合格线 90 分。
 
+> **⚠️ 若试卷题目变化 / 不在本仓库题库内：**
+> `exam_submit.py` 会识别出这些题目，打印题目原文与选项、提示**无法解答**，并**中止提交**（避免答错丢分）。
+> 此时请使用 **AI agent（如 Claude Code / DSH / Codex 等）** 自行搜索这些题目的答案，再将答案补充到
+> `exam_submit.py` 的 `ANSWERS` 字典，或更新同目录 `exam_questions.json`，之后重新运行 `exam_submit.py` 即可。
+
 ---
 
 ## 命令行 / 环境变量方式（不想写 config.json 时）
