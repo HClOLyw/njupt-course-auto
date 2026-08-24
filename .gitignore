@@ -1,5 +1,6 @@
-# ===== 敏感凭证（务必不要提交到仓库) =====
-config.json
+# ===== 敏感凭证（请勿提交含真实 token 的 config.json）=====
+# 说明：config.json 已作为"空模板"纳入仓库（token 留空）。
+# 请勿把填入真实 Access-Token 的 config.json 提交或上传到任何仓库。
 *.token
 *.pem
 .env
