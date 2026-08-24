@@ -46,8 +46,9 @@
 cd njupt-gui
 python njupt_gui.py
 
-在 **参数设置** 页粘贴 Token，核对课程 ID / 考试 ID（设置页与考试页都可改），
-点击 **保存配置**，然后回到对应功能页点按钮即可。
+在 **参数设置** 页粘贴 Token，点击 **保存配置** 即可开始刷课。
+**课程 ID / 考试 ID 可留空**：留空时自动使用默认的"安全教育课"（与原命令行脚本行为一致），
+只有换课程时才需要填写对应 ID。
 
 ---
 
@@ -73,8 +74,8 @@ pyinstaller -F -w -n "NJUPT课程助手" --icon app_icon.ico --add-data "config.
 |------|------|
 | token | 登录平台后复制的 Access-Token（需要填的就是这一个） |
 | tenant_id | 租户号，一般保持 "0" |
-| course_id | 课程 ID，即播放页 URL 里 ?id= 的值 |
-| exam_id | 考试 ID，默认内置在脚本 ANSWERS 映射中 |
+| course_id | 课程 ID，即播放页 URL 里 ?id= 的值（**留空 = 默认安全教育课**） |
+| exam_id | 考试 ID，默认内置在脚本 ANSWERS 映射中（**留空 = 默认考试**） |
 | interval_between | 每学完一个知识点后等待的秒数（越大越不易触发风控，默认 6） |
 
 ---

@@ -35,9 +35,13 @@ cfg = app.config_data
 app._update_dashboard_info()
 check("仪表盘配置显示", app.dash_info.cget("text") != "")
 
-# 恢复默认
+# 恢复默认（course_id 留空 = 使用默认安全教育课）
 app._reset_default()
-check("恢复默认course_id", app.entries["course_id"].get() == "2077931772737286146")
+check("恢复默认course_id留空", app.entries["course_id"].get() == "")
+# 应用配置时回退到默认课程
+app._apply_config_to_api()
+check("留空时API回退默认课程", app.api.course_id == "2077931772737286146")
+check("留空时API回退默认考试", app.api.run_exam is not None)
 
 # API 缺 token 时报错（正确行为）
 from njupt_api import NJUPTApi, ApiError

@@ -22,6 +22,7 @@ CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
 # 默认值
 DEFAULT_TENANT = "0"
 DEFAULT_COURSE_ID = "2077931772737286146"
+DEFAULT_EXAM_ID = "2078031452989038593"
 DEFAULT_INTERVAL = 6
 
 # 忽略 SSL 校验（平台证书自签/链不完整）
@@ -122,7 +123,7 @@ class NJUPTApi:
 
     # ------------ 查进度 ------------
     def get_course(self, course_id=None):
-        cid = course_id or self.course_id
+        cid = course_id or self.course_id or DEFAULT_COURSE_ID
         res = self.api_get("/app/study/course/info", {"id": cid})
         if not res.get("success"):
             raise ApiError("获取课程失败: %s" % res.get("message", res.get("code", res)))
@@ -260,7 +261,7 @@ class NJUPTApi:
         return ok
 
     def learn_course(self, course_id=None, fast=False):
-        cid = course_id or self.course_id
+        cid = course_id or self.course_id or DEFAULT_COURSE_ID
         self.fast = fast
         self.log("=" * 60)
         self.log("课程ID: %s" % cid)

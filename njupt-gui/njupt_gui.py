@@ -297,8 +297,8 @@ class NJUPTApp(tk.Tk):
         tk.Label(tip, text="⚠ 使用提示", font=("Microsoft YaHei UI", 11, "bold"),
                  fg=COLORS["primary_dark"], bg=COLORS["primary_light"]).pack(
                      anchor="w", padx=14, pady=(10, 2))
-        tk.Label(tip, text=("刷课 / 考试前，请先在【参数设置】中填写登录 Access-Token，"
-                            "并核对课程 ID。自动操作可能被平台判定为异常，仅限本人账号学习使用。"),
+        tk.Label(tip, text=("只需在【参数设置】填写登录 Access-Token 即可开始刷课（课程 / 考试 ID 留空"
+                            "时自动使用默认安全教育课）。自动操作可能被平台判定为异常，仅限本人账号学习使用。"),
                  font=("Microsoft YaHei UI", 10), fg=COLORS["primary_dark"],
                  bg=COLORS["primary_light"], justify="left", wraplength=880).pack(
                      anchor="w", padx=14, pady=(0, 10))
@@ -422,8 +422,8 @@ class NJUPTApp(tk.Tk):
         rows = [
             ("token", "Access-Token (登录凭证)", True),
             ("tenant_id", "租户号 tenant_id", False),
-            ("course_id", "课程 ID course_id", False),
-            ("exam_id", "考试 ID examId", False),
+            ("course_id", "课程 ID（留空=默认安全教育课）", False),
+            ("exam_id", "考试 ID（留空=默认）", False),
             ("interval_between", "知识点间隔秒数", False),
         ]
         self.entries = {}
@@ -553,9 +553,11 @@ class NJUPTApp(tk.Tk):
         return self.config_data
 
     def _apply_config_to_api(self):
+        from njupt_api import DEFAULT_COURSE_ID
         self.api.token = self.config_data.get("token", "")
         self.api.tenant_id = self.config_data.get("tenant_id", "0")
-        self.api.course_id = self.config_data.get("course_id", "")
+        # 课程 ID 留空 = 默认安全教育课
+        self.api.course_id = self.config_data.get("course_id", "") or DEFAULT_COURSE_ID
         self.api.interval_between = int(self.config_data.get("interval_between", 6))
 
     def _save_config(self, show=True):
@@ -570,16 +572,17 @@ class NJUPTApp(tk.Tk):
     def _reset_default(self):
         self.config_data = {
             "token": "", "tenant_id": "0",
-            "course_id": "2077931772737286146",
+            "course_id": "",
             "interval_between": 6,
-            "exam_id": "2078031452989038593",
+            "exam_id": "",
         }
         self._load_config_into_form()
-        self._append_log("info", "已恢复默认配置（未保存，请点击保存生效）。")
+        self._append_log("info", "已恢复默认配置：课程/考试 ID 留空即用默认安全教育课（未保存，请点击保存生效）。")
 
     def _update_dashboard_info(self):
         if "dash_info" not in self.__dict__:
             return
+        from njupt_api import DEFAULT_COURSE_ID, DEFAULT_EXAM_ID
         c = self.config_data
         token_txt = c.get("token") or ""
         if len(token_txt) > 12:
@@ -588,10 +591,12 @@ class NJUPTApp(tk.Tk):
             token_disp = "已填写"
         else:
             token_disp = "（空）"
+        cid = c.get("course_id", "") or DEFAULT_COURSE_ID
+        eid = c.get("exam_id", "") or DEFAULT_EXAM_ID
+        cid_txt = ("%s（默认安全教育课，留空即用）" % cid) if not c.get("course_id") else str(cid)
         self.dash_info.configure(text=(
             "课程ID：%s\n考试ID：%s\nToken：%s\n知识点间隔：%s 秒" % (
-                c.get("course_id", "—"), c.get("exam_id", "—"),
-                token_disp, c.get("interval_between", 6))))
+                cid_txt, eid, token_disp, c.get("interval_between", 6))))
 
     # ---------------- 页面切换 ----------------
     def _show_page(self, key):
