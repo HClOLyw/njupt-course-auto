@@ -389,18 +389,19 @@ class NJUPTApp(tk.Tk):
     # ---------------- 考试页 ----------------
     def _build_exam(self):
         page = self._page_container("exam")
-        self._header(page, "自动考试", "读取试卷、逐题作答并提交（内置题库已实测满分）")
+        self._header(page, "自动考试", "默认作答当前课程的【安全教育考试】，读取试卷、逐题作答并提交（内置题库已实测满分）")
 
         opt = tk.Frame(page, bg=COLORS["card"], highlightthickness=1,
                        highlightbackground=COLORS["border"])
         opt.pack(fill="x", padx=30, pady=(8, 16))
-        tk.Label(opt, text="考试 ID（examId）：", font=("Microsoft YaHei UI", 10),
+        tk.Label(opt, text="考试 ID（留空 = 自动使用当前课程考试，默认安全教育考试）：",
+                 font=("Microsoft YaHei UI", 10),
                  fg=COLORS["text"], bg=COLORS["card"]).pack(anchor="w", padx=18, pady=(12, 4))
         self.exam_id_entry = tk.Entry(opt, font=("Microsoft YaHei UI", 11),
                                       bd=1, relief="solid", highlightthickness=1,
                                       highlightbackground=COLORS["border"], fg=COLORS["text"])
         self.exam_id_entry.pack(fill="x", padx=18, pady=(0, 6), ipady=5)
-        tk.Label(opt, text="若试卷存在题库外的题目，将自动中止提交（避免答错丢分）。",
+        tk.Label(opt, text="若试卷存在题库外的题目，将自动中止提交（避免答错丢分）。换课程时在此填写对应考试 ID。",
                  font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
                  bg=COLORS["card"]).pack(anchor="w", padx=18, pady=(0, 12))
 
@@ -702,10 +703,8 @@ class NJUPTApp(tk.Tk):
 
     def _start_exam(self):
         self._save_config(show=False)
+        # 考试 ID 留空时自动使用当前课程的考试（默认安全教育考试），无需手动填写
         exam_id = self.exam_id_entry.get().strip() or None
-        if not exam_id:
-            messagebox.showwarning("提示", "请先在考试页或设置中填写考试 ID。")
-            return
         self._run_task(lambda: self._do_exam(exam_id))
 
     def _do_exam(self, exam_id):

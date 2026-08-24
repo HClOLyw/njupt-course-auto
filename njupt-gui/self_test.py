@@ -38,10 +38,23 @@ check("仪表盘配置显示", app.dash_info.cget("text") != "")
 # 恢复默认（course_id 留空 = 使用默认安全教育课）
 app._reset_default()
 check("恢复默认course_id留空", app.entries["course_id"].get() == "")
+check("恢复默认exam_id留空", app.entries["exam_id"].get() == "")
 # 应用配置时回退到默认课程
 app._apply_config_to_api()
 check("留空时API回退默认课程", app.api.course_id == "2077931772737286146")
 check("留空时API回退默认考试", app.api.run_exam is not None)
+# 考试页留空时 _start_exam 不应因缺 ID 提前返回（走后台任务路径）
+app.exam_id_entry.delete(0, "end")
+app.exam_id_entry.insert(0, "")
+app._busy = False
+started = []
+orig_run_task = app._run_task
+def fake_run_task(fn):
+    started.append(fn)
+app._run_task = fake_run_task
+app._start_exam()
+app._run_task = orig_run_task
+check("考试ID留空可启动(不弹窗)", len(started) == 1)
 
 # API 缺 token 时报错（正确行为）
 from njupt_api import NJUPTApi, ApiError

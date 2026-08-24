@@ -341,9 +341,22 @@ class NJUPTApi:
     }
     DEFAULT_EXAM_ID = "2078031452989038593"
 
+    def _auto_exam_id(self):
+        """优先从课程信息自动获取该课程的 examId（原脚本注释提供的方案）。"""
+        try:
+            course = self.get_course()
+            eid = course.get("examId") or course.get("exam_id") or ""
+            if eid:
+                self.log("已从课程信息自动获取考试 ID：%s" % eid, "info")
+                return str(eid)
+        except Exception:
+            pass
+        self.log("课程信息无 examId，使用默认安全教育考试 ID：%s" % self.DEFAULT_EXAM_ID, "info")
+        return self.DEFAULT_EXAM_ID
+
     def run_exam(self, exam_id=None):
         """自动考试作答并提交。返回结果字典。若遇到题库外题目则中止。"""
-        eid = exam_id or self.DEFAULT_EXAM_ID
+        eid = exam_id or self._auto_exam_id()
         self.log("=" * 60)
         self.log("开始自动考试 (examId=%s)" % eid)
         res = self.api_get("/exam/app/examDetail/loadExamDetailList",
