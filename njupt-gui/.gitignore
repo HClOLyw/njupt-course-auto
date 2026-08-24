@@ -1,0 +1,10 @@
+# 构建缓存（保留打包好的 exe 与源码）
+build/
+build_tmp/
+spec_tmp/
+__pycache__/
+*.pyc
+*.spec
+# 临时文件
+_*.py
+*.log
