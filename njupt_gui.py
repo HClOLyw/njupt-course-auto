@@ -18,6 +18,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 
 from njupt_api import NJUPTApi, CONFIG_PATH, ApiError
+from njupt_lab_api import LabApi, LabApiError
 
 # ---------------- 配色方案（现代浅色扁平风格） ----------------
 COLORS = {
@@ -39,6 +40,11 @@ COLORS = {
     "sidebar": "#1B2559",
     "sidebar_hover": "#27326E",
 }
+
+# 教育类型：显示文本 -> 配置值
+EDU_MODE_LABELS = ("实验室安全教育（按Token自动获取课程）",
+                   "新生教育（在线课堂，默认ID）")
+EDU_MODE_BY_LABEL = {EDU_MODE_LABELS[0]: "lab", EDU_MODE_LABELS[1]: "freshman"}
 
 
 class RoundButton(tk.Canvas):
@@ -125,6 +131,11 @@ class NJUPTApp(tk.Tk):
 
         self.config_data = NJUPTApi.load_config()
         self.api = self._build_api()
+        self.lab_api = self._build_lab_api()
+
+        # 教育类型模式变量：设置页与考试页共用同一选择，随配置初始化
+        self.edu_mode_var = tk.StringVar()
+        self._set_edu_mode_var(self.config_data.get("edu_mode", "freshman"))
 
         self._build_layout()
 
@@ -145,6 +156,15 @@ class NJUPTApp(tk.Tk):
             token=self.config_data.get("token", ""),
             tenant_id=self.config_data.get("tenant_id", "0"),
             course_id=self.config_data.get("course_id", ""),
+            interval_between=self.config_data.get("interval_between", 6),
+            log_callback=self._queue_log,
+        )
+
+    def _build_lab_api(self):
+        return LabApi(
+            token=self.config_data.get("lab_token", ""),
+            base=self.config_data.get("lab_base", ""),
+            web=self.config_data.get("lab_web", ""),
             interval_between=self.config_data.get("interval_between", 6),
             log_callback=self._queue_log,
         )
@@ -190,6 +210,7 @@ class NJUPTApp(tk.Tk):
             ("learn", "▶  自动刷课"),
             ("status", "📈  进度查询"),
             ("exam", "✍  自动考试"),
+            ("lab", "🧪  实验室安全"),
             ("settings", "⚙  参数设置"),
             ("about", "ℹ  关于说明"),
         ]
@@ -223,13 +244,21 @@ class NJUPTApp(tk.Tk):
         self._build_learn()
         self._build_status()
         self._build_exam()
+        self._build_lab()
         self._build_settings()
         self._build_about()
         self._build_shared_log()
 
-        self._show_page("dashboard")
+        # 从已保存配置填充表单（含教育类型选择），并按模式调整考试页可用性
+        self._load_config_into_form()
+        self._apply_edu_mode_ui()
+
+        # 教育类型决定启动默认页：实验室安全教育 -> 直接进实验室页
+        start_key = ("lab" if self.config_data.get("edu_mode", "freshman") == "lab"
+                     else "dashboard")
+        self._show_page(start_key)
         self._append_log("info", "欢迎使用南邮在线课堂自动化助手。")
-        self._append_log("info", "请先在【参数设置】填写 Access-Token，再选择功能开始操作。")
+        self._append_log("info", "请先在【参数设置】填写 Access-Token（实验室平台另填实验室 Token），再选择功能开始操作。")
 
     def _redraw_nav(self, btn):
         key = self._current_page
@@ -389,27 +418,136 @@ class NJUPTApp(tk.Tk):
     # ---------------- 考试页 ----------------
     def _build_exam(self):
         page = self._page_container("exam")
-        self._header(page, "自动考试", "默认作答当前课程的【安全教育考试】，读取试卷、逐题作答并提交（内置题库已实测满分）")
+        self._header(page, "自动考试",
+                     "实验室安全教育：按 Token 自动获取考试作答；新生教育：在线课堂默认考试（内置题库）")
+
+        mode_card = tk.Frame(page, bg=COLORS["card"], highlightthickness=1,
+                             highlightbackground=COLORS["border"])
+        mode_card.pack(fill="x", padx=30, pady=(8, 4))
+        mode_row = tk.Frame(mode_card, bg=COLORS["card"])
+        mode_row.pack(fill="x", padx=18, pady=(12, 4))
+        tk.Label(mode_row, text="考试教育类型", font=("Microsoft YaHei UI", 10, "bold"),
+                 fg=COLORS["text"], bg=COLORS["card"], width=24,
+                 anchor="w").pack(side="left")
+        self.exam_mode_combo = ttk.Combobox(
+            mode_row, textvariable=self.edu_mode_var, state="readonly", width=40,
+            values=EDU_MODE_LABELS)
+        self.exam_mode_combo.pack(side="left", fill="x", expand=True, ipady=2)
+        self.exam_mode_combo.bind("<<ComboboxSelected>>", self._on_edu_mode_change)
+        self.exam_mode_note = tk.Label(
+            mode_card, text="", font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
+            bg=COLORS["card"], justify="left", wraplength=880)
+        self.exam_mode_note.pack(anchor="w", padx=18, pady=(2, 10))
 
         opt = tk.Frame(page, bg=COLORS["card"], highlightthickness=1,
                        highlightbackground=COLORS["border"])
         opt.pack(fill="x", padx=30, pady=(8, 16))
-        tk.Label(opt, text="考试 ID（留空 = 自动使用当前课程考试，默认安全教育考试）：",
-                 font=("Microsoft YaHei UI", 10),
-                 fg=COLORS["text"], bg=COLORS["card"]).pack(anchor="w", padx=18, pady=(12, 4))
+        self.exam_id_label = tk.Label(opt, text="考试 ID（留空 = 自动使用当前课程考试，默认安全教育考试）：",
+                                      font=("Microsoft YaHei UI", 10),
+                                      fg=COLORS["text"], bg=COLORS["card"])
+        self.exam_id_label.pack(anchor="w", padx=18, pady=(12, 4))
         self.exam_id_entry = tk.Entry(opt, font=("Microsoft YaHei UI", 11),
                                       bd=1, relief="solid", highlightthickness=1,
                                       highlightbackground=COLORS["border"], fg=COLORS["text"])
         self.exam_id_entry.pack(fill="x", padx=18, pady=(0, 6), ipady=5)
-        tk.Label(opt, text="若试卷存在题库外的题目，将自动中止提交（避免答错丢分）。换课程时在此填写对应考试 ID。",
-                 font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
-                 bg=COLORS["card"]).pack(anchor="w", padx=18, pady=(0, 12))
+        self.exam_id_note = tk.Label(opt, text="若试卷存在题库外的题目，将自动中止提交（避免答错丢分）。换课程时在此填写对应考试 ID。",
+                                     font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
+                                     bg=COLORS["card"], justify="left", wraplength=880)
+        self.exam_id_note.pack(anchor="w", padx=18, pady=(0, 12))
 
         act = tk.Frame(page, bg=COLORS["bg"])
         act.pack(fill="x", padx=30)
         self.exam_btn = RoundButton(act, "开始考试", command=self._start_exam,
                                     bg=COLORS["warn"], height=46)
         self.exam_btn.pack(side="left")
+
+    # ---------------- 实验室安全教育页 ----------------
+    def _build_lab(self):
+        page = self._page_container("lab")
+        self._header(page, "实验室安全教育",
+                     "南邮实验室安全数字化教育平台 (10.22.192.38)：自动刷课 / 查进度 / 自动考试")
+
+        opt = tk.Frame(page, bg=COLORS["card"], highlightthickness=1,
+                       highlightbackground=COLORS["border"])
+        opt.pack(fill="x", padx=30, pady=(8, 16))
+        self.lab_fast_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(opt, text="快速模式（每门课一次性上报进度，更快但更易触发风控）",
+                       variable=self.lab_fast_var, font=("Microsoft YaHei UI", 10),
+                       fg=COLORS["text"], bg=COLORS["card"],
+                       activebackground=COLORS["card"], selectcolor="#FFFFFF").pack(
+                           anchor="w", padx=18, pady=14)
+
+        act = tk.Frame(page, bg=COLORS["bg"])
+        act.pack(fill="x", padx=30)
+        self.lab_learn_btn = RoundButton(act, "开始刷实验室课程", command=self._start_lab_learn,
+                                         bg=COLORS["primary"], height=44)
+        self.lab_learn_btn.pack(side="left")
+        self.lab_status_btn = RoundButton(act, "查询课程进度", command=self._start_lab_status,
+                                          bg=COLORS["accent"], height=44)
+        self.lab_status_btn.pack(side="left", padx=(12, 0))
+        self.lab_exam_btn = RoundButton(act, "自动考试", command=self._start_lab_exam,
+                                        bg=COLORS["warn"], height=44)
+        self.lab_exam_btn.pack(side="left", padx=(12, 0))
+
+        chap = tk.Frame(page, bg=COLORS["card"], highlightthickness=1,
+                        highlightbackground=COLORS["border"])
+        chap.pack(fill="x", padx=30, pady=(12, 0))
+        labl = tk.Frame(chap, bg=COLORS["card"])
+        labl.pack(fill="x", padx=18, pady=10)
+        tk.Label(labl, text="《实验室安全承诺书》", font=("Microsoft YaHei UI", 11, "bold"),
+                 fg=COLORS["title"], bg=COLORS["card"]).pack(side="left")
+        self.commit_btn = RoundButton(labl, "下载承诺书模板", command=self._download_commitment,
+                                      bg="#98A1C0", height=36, radius=14)
+        self.commit_btn.pack(side="left", padx=(12, 0))
+        self.commit_up_btn = RoundButton(labl, "上传已签字承诺书…", command=self._upload_commitment,
+                                         bg=COLORS["primary"], height=36, radius=14)
+        self.commit_up_btn.pack(side="left", padx=(12, 0))
+        tk.Label(chap, text=("考试前必须先上传本人签字的承诺书（下载 → 打印签字/拍照 → 上传）。"
+                             "未上传时自动考试会提示无法开始。"),
+                 font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
+                 bg=COLORS["card"], justify="left", wraplength=880).pack(
+                     anchor="w", padx=18, pady=(0, 10))
+
+        self.lab_summary_card = tk.Frame(page, bg=COLORS["card"],
+                                         highlightthickness=1,
+                                         highlightbackground=COLORS["border"])
+        self.lab_summary_card.pack(fill="x", padx=30, pady=(16, 14))
+        self.lab_summary_label = tk.Label(self.lab_summary_card,
+                                          text="尚未查询，点击【查询课程进度】查看实验室课程状态。",
+                                          font=("Microsoft YaHei UI", 11),
+                                          fg=COLORS["text"], bg=COLORS["card"],
+                                          justify="left")
+        self.lab_summary_label.pack(anchor="w", padx=18, pady=12)
+
+        self.lab_table_frame = tk.Frame(page, bg=COLORS["bg"])
+        self.lab_table_frame.pack(fill="both", expand=True, padx=30, pady=(0, 20))
+        cols = ("name", "watch", "qnum", "wrong", "state")
+        self.lab_tree = ttk.Treeview(self.lab_table_frame, columns=cols,
+                                     show="headings", height=12)
+        headings = {
+            "name": ("课程名称", 240),
+            "watch": ("观看进度", 90),
+            "qnum": ("已答/总题数", 90),
+            "wrong": ("答错题数", 80),
+            "state": ("状态", 80),
+        }
+        for c in cols:
+            text, w = headings[c]
+            self.lab_tree.heading(c, text=text)
+            anchor = "w" if c == "name" else "center"
+            self.lab_tree.column(c, width=w, anchor=anchor)
+        style = ttk.Style(self)
+        style.configure("Lab.Treeview", font=("Microsoft YaHei UI", 10), rowheight=26,
+                        background="#FFFFFF", fieldbackground="#FFFFFF",
+                        foreground=COLORS["text"])
+        style.configure("Lab.Treeview.Heading", font=("Microsoft YaHei UI", 10, "bold"),
+                        background=COLORS["primary_light"], foreground=COLORS["title"])
+        style.map("Lab.Treeview", background=[("selected", COLORS["primary_light"])],
+                  foreground=[("selected", COLORS["title"])])
+        self.lab_tree.configure(style="Lab.Treeview")
+        self.lab_tree.pack(fill="both", expand=True)
+        self.lab_tree.tag_configure("done", foreground=COLORS["accent"])
+        self.lab_tree.tag_configure("todo", foreground=COLORS["text"])
 
     # ---------------- 设置页 ----------------
     def _build_settings(self):
@@ -420,12 +558,33 @@ class NJUPTApp(tk.Tk):
                         highlightbackground=COLORS["border"])
         card.pack(fill="x", padx=30, pady=(8, 16))
 
+        # 教育类型选择（设置页与考试页共用同一变量，任意一处改动两处同步）
+        mode_row = tk.Frame(card, bg=COLORS["card"])
+        mode_row.pack(fill="x", padx=20, pady=(18, 4))
+        tk.Label(mode_row, text="教育类型", font=("Microsoft YaHei UI", 10, "bold"),
+                 fg=COLORS["text"], bg=COLORS["card"], width=24,
+                 anchor="w").pack(side="left")
+        self.edu_mode_combo = ttk.Combobox(
+            mode_row, textvariable=self.edu_mode_var, state="readonly", width=40,
+            values=EDU_MODE_LABELS)
+        self.edu_mode_combo.pack(side="left", fill="x", expand=True, ipady=2)
+        self.edu_mode_combo.bind("<<ComboboxSelected>>", self._on_edu_mode_change)
+        tk.Label(card, text=("安全教育 = 实验室平台(10.22.192.38)：输入实验室 Token 后自动获取"
+                             "本账号课程/考试，无需填写课程 ID；新生教育 = 在线课堂 "
+                             "(study.njupt.edu.cn)：课程/考试 ID 留空时按默认安全教育课自动设置。"),
+                 font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
+                 bg=COLORS["card"], wraplength=760, justify="left").pack(
+                     anchor="w", padx=20, pady=(4, 6))
+
         rows = [
             ("token", "Access-Token (登录凭证)", True),
             ("tenant_id", "租户号 tenant_id", False),
             ("course_id", "课程 ID（留空=默认安全教育课）", False),
             ("exam_id", "考试 ID（留空=默认）", False),
             ("interval_between", "知识点间隔秒数", False),
+            ("lab_token", "实验室 Token (10.22.192.38)", True),
+            ("lab_base", "实验室 API 地址（留空=默认）", False),
+            ("lab_web", "实验室 Web 地址（留空=默认）", False),
         ]
         self.entries = {}
         for i, (key, label, is_secret) in enumerate(rows):
@@ -443,7 +602,9 @@ class NJUPTApp(tk.Tk):
             self.entries[key].pack(side="left", fill="x", expand=True, ipady=5)
 
         tk.Label(card, text=("Token 获取：登录平台后按 F12 → Application → Local Storage，"
-                             "复制 Access-Token 的值。Token 约 7 天过期。"),
+                             "复制 Access-Token 的值。Token 约 7 天过期。\n"
+                             "实验室 Token 获取：登录 http://10.22.192.38:9092 后，同样复制 "
+                             "Local Storage 里 Access-Token 的值填入。"),
                  font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
                  bg=COLORS["card"], wraplength=760, justify="left").pack(
                      anchor="w", padx=20, pady=(8, 6))
@@ -470,10 +631,12 @@ class NJUPTApp(tk.Tk):
             "功能：\n"
             "  ▶ 自动刷课 —— 遍历课程全部知识点，模拟观看视频 / PDF 至 100%\n"
             "  ▶ 进度查询 —— 查看每个知识点的真实完成状态\n"
-            "  ▶ 自动考试 —— 读取试卷、逐题作答并提交\n\n"
+            "  ▶ 自动考试 —— 读取试卷、逐题作答并提交\n"
+            "  ▶ 实验室安全 —— 实验室平台(10.22.192.38)刷课 / 查进度 / 考试\n\n"
             "原理：\n"
-            "  通过调用平台真实接口（study.njupt.edu.cn）模拟学习与答题，\n"
-            "  仅依赖 Python 标准库，无需安装任何第三方包。\n\n"
+            "  通过调用平台真实接口模拟学习与答题，仅依赖 Python 标准库。\n"
+            "  实验室平台：课程 = 视频 + 时间点弹题，看完标记完成；\n"
+            "  考试答案优先从练习接口收集题库正确答案，题库外题目自动中止提交。\n\n"
             "来源：\n"
             "  本项目基于开源项目 njupt-course-auto 二次开发。\n\n"
             "⚠ 免责声明：\n"
@@ -515,6 +678,36 @@ class NJUPTApp(tk.Tk):
         self.log_text.delete("1.0", "end")
         self.log_text.configure(state="disabled")
 
+    # ---------------- 教育类型模式 ----------------
+    def _edu_mode_code(self):
+        """当前教育类型配置值："lab" 或 "freshman"。"""
+        return EDU_MODE_BY_LABEL.get(self.edu_mode_var.get(), "freshman")
+
+    def _set_edu_mode_var(self, code):
+        """按配置值设置模式变量（设置页与考试页两个下拉框会自动同步显示）。"""
+        self.edu_mode_var.set(EDU_MODE_LABELS[0] if code == "lab" else EDU_MODE_LABELS[1])
+
+    def _on_edu_mode_change(self, *_):
+        self._apply_edu_mode_ui()
+        if getattr(self, "_current_page", None) == "dashboard":
+            self._update_dashboard_info()
+
+    def _apply_edu_mode_ui(self):
+        """根据当前模式调整考试页可见性：实验室模式无需填写考试 ID。"""
+        lab = self._edu_mode_code() == "lab"
+        for attr, lab_text, fresh_text in (
+            ("exam_id_label", "考试 ID（实验室模式按 Token 自动获取，无需填写）：",
+             "考试 ID（留空 = 自动使用当前课程考试，默认安全教育考试）："),
+            ("exam_id_note", "实验室考试：按 Token 自动获取本账号考试（先收集题库答案再作答提交；需先上传签字承诺书）。",
+             "若试卷存在题库外的题目，将自动中止提交（避免答错丢分）。换课程时在此填写对应考试 ID。"),
+            ("exam_mode_note", "当前：实验室安全教育 —— 考试题目随账号 Token 自动获取并作答。",
+             "当前：新生教育 —— 在线课堂考试，ID 留空自动使用默认安全教育考试。"),
+        ):
+            if hasattr(self, attr):
+                getattr(self, attr).configure(text=lab_text if lab else fresh_text)
+        if hasattr(self, "exam_id_entry"):
+            self.exam_id_entry.configure(state="disabled" if lab else "normal")
+
     # ---------------- 配置读写 ----------------
     def _sync_exam_entry(self):
         """设置页与考试页的 exam_id 双向同步取当前值。"""
@@ -535,7 +728,11 @@ class NJUPTApp(tk.Tk):
                 val = self.config_data.get(cfg_key, "")
                 self.entries[form_key].delete(0, "end")
                 self.entries[form_key].insert(0, str(val))
+        mode = self.config_data.get("edu_mode", "freshman")
+        if hasattr(self, "edu_mode_var"):
+            self._set_edu_mode_var(mode)
         self._sync_exam_entry()
+        self._apply_edu_mode_ui()
 
     def _collect_config_from_form(self):
         self.config_data["token"] = self.entries["token"].get().strip()
@@ -551,6 +748,11 @@ class NJUPTApp(tk.Tk):
                 self.entries["interval_between"].get().strip())
         except ValueError:
             self.config_data["interval_between"] = 6
+        self.config_data["lab_token"] = self.entries["lab_token"].get().strip()
+        self.config_data["lab_base"] = self.entries["lab_base"].get().strip()
+        self.config_data["lab_web"] = self.entries["lab_web"].get().strip()
+        if hasattr(self, "edu_mode_var"):
+            self.config_data["edu_mode"] = self._edu_mode_code()
         return self.config_data
 
     def _apply_config_to_api(self):
@@ -560,6 +762,12 @@ class NJUPTApp(tk.Tk):
         # 课程 ID 留空 = 默认安全教育课
         self.api.course_id = self.config_data.get("course_id", "") or DEFAULT_COURSE_ID
         self.api.interval_between = int(self.config_data.get("interval_between", 6))
+        # 实验室平台
+        from njupt_lab_api import LAB_API_BASE, LAB_WEB_BASE
+        self.lab_api.token = self.config_data.get("lab_token", "")
+        self.lab_api.base = self.config_data.get("lab_base", "") or LAB_API_BASE
+        self.lab_api.web = self.config_data.get("lab_web", "") or LAB_WEB_BASE
+        self.lab_api.interval_between = int(self.config_data.get("interval_between", 6))
 
     def _save_config(self, show=True):
         self._collect_config_from_form()
@@ -576,6 +784,10 @@ class NJUPTApp(tk.Tk):
             "course_id": "",
             "interval_between": 6,
             "exam_id": "",
+            "lab_token": "",
+            "lab_base": "http://10.22.192.38:9090/jeecg-boot",
+            "lab_web": "http://10.22.192.38:9092",
+            "edu_mode": "freshman",
         }
         self._load_config_into_form()
         self._append_log("info", "已恢复默认配置：课程/考试 ID 留空即用默认安全教育课（未保存，请点击保存生效）。")
@@ -585,19 +797,26 @@ class NJUPTApp(tk.Tk):
             return
         from njupt_api import DEFAULT_COURSE_ID, DEFAULT_EXAM_ID
         c = self.config_data
-        token_txt = c.get("token") or ""
-        if len(token_txt) > 12:
-            token_disp = token_txt[:6] + "..." + token_txt[-4:]
-        elif token_txt:
-            token_disp = "已填写"
-        else:
-            token_disp = "（空）"
+
+        def disp(txt):
+            txt = txt or ""
+            if len(txt) > 12:
+                return txt[:6] + "..." + txt[-4:]
+            return txt if txt else "（空）"
+
         cid = c.get("course_id", "") or DEFAULT_COURSE_ID
         eid = c.get("exam_id", "") or DEFAULT_EXAM_ID
         cid_txt = ("%s（默认安全教育课，留空即用）" % cid) if not c.get("course_id") else str(cid)
+        mode_txt = ("实验室安全教育（按 Token 自动获取课程）"
+                    if c.get("edu_mode", "freshman") == "lab" else
+                    "新生教育（在线课堂，默认 ID）")
         self.dash_info.configure(text=(
-            "课程ID：%s\n考试ID：%s\nToken：%s\n知识点间隔：%s 秒" % (
-                cid_txt, eid, token_disp, c.get("interval_between", 6))))
+            "教育类型：%s\n"
+            "课程ID：%s\n考试ID：%s\n在线课堂 Token：%s\n知识点间隔：%s 秒\n"
+            "实验室 Token：%s\n实验室平台：%s" % (
+                mode_txt, cid_txt, eid, disp(c.get("token")), c.get("interval_between", 6),
+                disp(c.get("lab_token")),
+                (c.get("lab_base") or "http://10.22.192.38:9090/jeecg-boot"))))
 
     # ---------------- 页面切换 ----------------
     def _show_page(self, key):
@@ -607,7 +826,7 @@ class NJUPTApp(tk.Tk):
         self.log_frame.pack_forget()
         page = self.pages[key]
         page.pack(fill="both", expand=True)
-        if key in ("learn", "status", "exam"):
+        if key in ("learn", "status", "exam", "lab"):
             self.log_frame.pack(fill="both", expand=True, padx=30, pady=(0, 20))
         for k, btn in self.nav_buttons.items():
             if k == key:
@@ -626,7 +845,10 @@ class NJUPTApp(tk.Tk):
                                   fg="#66FFB2" if busy else "#9FA8DA")
         for b in (getattr(self, "learn_btn", None),
                   getattr(self, "status_btn", None),
-                  getattr(self, "exam_btn", None)):
+                  getattr(self, "exam_btn", None),
+                  getattr(self, "lab_learn_btn", None),
+                  getattr(self, "lab_status_btn", None),
+                  getattr(self, "lab_exam_btn", None)):
             if b is not None:
                 b.set_disabled(busy)
 
@@ -643,6 +865,9 @@ class NJUPTApp(tk.Tk):
         try:
             fn()
         except ApiError as e:
+            self._queue_log("error", str(e))
+            self._show_error("操作失败", str(e))
+        except LabApiError as e:
             self._queue_log("error", str(e))
             self._show_error("操作失败", str(e))
         except Exception as e:
@@ -703,7 +928,11 @@ class NJUPTApp(tk.Tk):
 
     def _start_exam(self):
         self._save_config(show=False)
-        # 考试 ID 留空时自动使用当前课程的考试（默认安全教育考试），无需手动填写
+        # 实验室安全教育模式：按 Token 自动获取考试并作答（无需考试 ID）
+        if self._edu_mode_code() == "lab":
+            self._run_task(self._do_lab_exam)
+            return
+        # 新生教育模式：在线课堂，考试 ID 留空自动使用默认考试
         exam_id = self.exam_id_entry.get().strip() or None
         self._run_task(lambda: self._do_exam(exam_id))
 
@@ -726,6 +955,125 @@ class NJUPTApp(tk.Tk):
                 messagebox.showwarning("注意", "试卷含题库外题目，为避免答错丢分，本次未提交。\n请在日志中查看题目，补充答案后重试。")
             except Exception:
                 pass
+
+    # ---------------- 实验室安全教育 ----------------
+    def _download_commitment(self):
+        from njupt_lab_api import SCRIPT_DIR as LAB_SCRIPT_DIR
+        self._save_config(show=False)
+        self._run_task(lambda: self._do_download_commitment(LAB_SCRIPT_DIR))
+
+    def _do_download_commitment(self, save_dir):
+        import os
+        self._append_log("info", "正在下载《实验室安全承诺书》模板...")
+        path = self.lab_api.download_commitment(
+            os.path.join(save_dir, "实验室安全承诺书.doc"))
+        self._append_log("success", "已保存到：%s" % path)
+        try:
+            messagebox.showinfo("完成", "承诺书模板已保存到：\n%s\n\n请打印并本人签字后，"
+                                        "拍照或扫描，再点【上传已签字承诺书…】。" % path)
+        except Exception:
+            pass
+
+    def _upload_commitment(self):
+        from tkinter import filedialog
+        self._save_config(show=False)
+        path = filedialog.askopenfilename(
+            title="选择已签字的承诺书（图片/PDF/文档均可）",
+            filetypes=[("图片/文档", "*.jpg *.jpeg *.png *.bmp *.gif *.pdf *.doc *.docx")])
+        if not path:
+            return
+        self._run_task(lambda: self._do_upload_commitment(path))
+
+    def _do_upload_commitment(self, path):
+        self._append_log("info", "正在上传并绑定承诺书：%s" % path)
+        self.lab_api.upload_commitment(path)
+        self._append_log("success", "承诺书绑定完成，现在可以自动考试了。")
+        try:
+            messagebox.showinfo("完成", "承诺书已上传并绑定。可以开始自动考试。")
+        except Exception:
+            pass
+
+    def _start_lab_learn(self):
+        self._save_config(show=False)
+        fast = self.lab_fast_var.get()
+        self._run_task(lambda: self._do_lab_learn(fast))
+
+    def _do_lab_learn(self, fast):
+        self._append_log("info", "=" * 50)
+        self._append_log("info", "开始刷实验室安全课程...")
+        done, total, failed = self.lab_api.learn_all(fast=fast)
+        self._append_log("success", "实验室刷课结束：%d / %d 门" % (done, total))
+        try:
+            messagebox.showinfo("完成", "实验室刷课结束：%d / %d 门%s" % (
+                done, total, ("\n失败：" + "，".join(failed)) if failed else ""))
+        except Exception:
+            pass
+        self._refresh_lab_table()
+
+    def _start_lab_status(self):
+        self._save_config(show=False)
+        self._run_task(self._do_lab_status)
+
+    def _do_lab_status(self):
+        self._append_log("info", "正在查询实验室课程进度...")
+        rows = self.lab_api.my_courses()
+        if not rows:
+            self._append_log("warn", "未获取到实验室课程（检查 lab_token 是否正确）")
+            self.lab_summary_label.configure(text="未获取到课程，请检查实验室 Token。")
+            return
+        self.lab_summary_label.configure(text=(
+            "实验室课程共 %d 门    完成 %d 门    未完成 %d 门" % (
+                len(rows), sum(1 for r in rows if str(r.get("isFinish")) in ("1", "true", "True")),
+                sum(1 for r in rows if str(r.get("isFinish")) not in ("1", "true", "True")))))
+        for item in self.lab_tree.get_children():
+            self.lab_tree.delete(item)
+        for r in rows:
+            done_flag = str(r.get("isFinish")) in ("1", "true", "True")
+            self.lab_tree.insert("", "end", values=(
+                r.get("name", ""),
+                "%s%%" % (r.get("watchDuration") or 0),
+                "%s / %s" % (r.get("donum", 0), r.get("total", 0)),
+                r.get("unCorrectNum", 0),
+                "已完成" if done_flag else "未完成"),
+                tags=("done" if done_flag else "todo",))
+        self._append_log("success", "实验室进度查询完成：%d 门" % len(rows))
+
+    def _refresh_lab_table(self):
+        try:
+            rows = self.lab_api.my_courses()
+            if rows:
+                self.lab_tree.delete(*self.lab_tree.get_children())
+                for r in rows:
+                    done_flag = str(r.get("isFinish")) in ("1", "true", "True")
+                    self.lab_tree.insert("", "end", values=(
+                        r.get("name", ""),
+                        "%s%%" % (r.get("watchDuration") or 0),
+                        "%s / %s" % (r.get("donum", 0), r.get("total", 0)),
+                        r.get("unCorrectNum", 0),
+                        "已完成" if done_flag else "未完成"),
+                        tags=("done" if done_flag else "todo",))
+        except Exception:
+            pass
+
+    def _start_lab_exam(self):
+        self._save_config(show=False)
+        self._run_task(self._do_lab_exam)
+
+    def _do_lab_exam(self):
+        self._append_log("info", "=" * 50)
+        self._append_log("info", "开始实验室安全考试...")
+        if not self.lab_api.answer_bank:
+            self._append_log("info", "先收集题库答案...")
+            self.lab_api.harvest_answer_bank()
+        ok, total = self.lab_api.run_all_exams()
+        if total:
+            self._append_log("success", "实验室考试处理完成：成功 %d / %d" % (ok, total))
+            try:
+                messagebox.showinfo("完成", "实验室考试处理完成：成功 %d / %d" % (ok, total))
+            except Exception:
+                pass
+        else:
+            self._append_log("warn", "没有可参加的实验室考试。")
 
     # ---------------- 关闭 ----------------
     def _on_close(self):

@@ -24,6 +24,7 @@ python -m PyInstaller -F -w -n "NJUPT课程助手" ^
     --add-data "config.json;." ^
     --add-data "exam_questions.json;." ^
     --add-data "njupt_api.py;." ^
+    --add-data "njupt_lab_api.py;." ^
     --add-data "app_icon.ico;." ^
     njupt_gui.py
 

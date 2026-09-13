@@ -11,12 +11,17 @@ import json
 import math
 import os
 import ssl
+import sys
 import time
 import urllib.parse
 import urllib.request
 
 API_BASE = "https://study.njupt.edu.cn/service-api"
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, "frozen", False):
+    # PyInstaller onefile：config.json 与 exe 同目录，保证保存能持久化
+    SCRIPT_DIR = os.path.dirname(sys.executable)
+else:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
 
 # 默认值
@@ -66,6 +71,11 @@ class NJUPTApi:
             "tenant_id": DEFAULT_TENANT,
             "course_id": DEFAULT_COURSE_ID,
             "interval_between": DEFAULT_INTERVAL,
+            "exam_id": "",
+            "lab_token": "",
+            "lab_base": "http://10.22.192.38:9090/jeecg-boot",
+            "lab_web": "http://10.22.192.38:9092",
+            "edu_mode": "freshman",
         }
         if os.path.exists(CONFIG_PATH):
             try:
@@ -80,7 +90,8 @@ class NJUPTApi:
     def save_config(cfg):
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump({k: cfg.get(k) for k in (
-                "token", "tenant_id", "course_id", "interval_between")},
+                "token", "tenant_id", "course_id", "interval_between",
+                "exam_id", "lab_token", "lab_base", "lab_web", "edu_mode")},
                 f, ensure_ascii=False, indent=2)
 
     # ------------ HTTP 封装 ------------

@@ -15,19 +15,22 @@ def check(name, cond):
 
 # 关键控件
 check("窗口标题", "南邮在线课堂" in app.title())
-check("导航按钮数", len(app.nav_buttons) == 6)
-check("页面数", len(app.pages) == 6)
+check("导航按钮数", len(app.nav_buttons) == 7)
+check("页面数", len(app.pages) == 7)
 check("刷课按钮", hasattr(app, "learn_btn"))
 check("进度按钮", hasattr(app, "status_btn"))
 check("考试按钮", hasattr(app, "exam_btn"))
-check("设置输入框", len(app.entries) == 5)
+check("实验室按钮", hasattr(app, "lab_learn_btn") and hasattr(app, "lab_exam_btn"))
+check("设置输入框", len(app.entries) == 8)
+check("教育类型选择框", hasattr(app, "edu_mode_combo"))
+check("考试页教育类型选择框", hasattr(app, "exam_mode_combo"))
 check("日志框", hasattr(app, "log_text"))
 
 # 页面切换遍历
-for key in ("dashboard","learn","status","exam","settings","about"):
+for key in ("dashboard","learn","status","exam","lab","settings","about"):
     app._show_page(key)
     app.update_idletasks()
-check("页面切换遍历", app._current_page in ("dashboard","learn","status","exam","settings","about"))
+check("页面切换遍历", app._current_page in ("dashboard","learn","status","exam","lab","settings","about"))
 
 # 配置读取/保存
 import os, json
@@ -39,6 +42,28 @@ check("仪表盘配置显示", app.dash_info.cget("text") != "")
 app._reset_default()
 check("恢复默认course_id留空", app.entries["course_id"].get() == "")
 check("恢复默认exam_id留空", app.entries["exam_id"].get() == "")
+check("恢复默认教育类型=新生教育", app.config_data.get("edu_mode", "") == "freshman")
+
+# 切换教育类型为实验室安全教育
+app._set_edu_mode_var("lab")
+app._collect_config_from_form()
+check("切换教育类型=实验室", app.config_data.get("edu_mode") == "lab")
+check("实验室模式考试页同步显示", app.exam_mode_combo.get() == app.edu_mode_combo.get())
+
+# 实验室模式点「开始考试」应走实验室流程（无需考试 ID）
+app._busy = False
+started2 = []
+orig_run_task2 = app._run_task
+def fake_run_task2(fn):
+    started2.append(fn)
+app._run_task = fake_run_task2
+app._start_exam()
+app._run_task = orig_run_task2
+check("实验室模式考试走Lab流程", len(started2) == 1 and started2[0] == app._do_lab_exam)
+
+app._set_edu_mode_var("freshman")
+app._collect_config_from_form()
+check("切回教育类型=新生", app.config_data.get("edu_mode") == "freshman")
 # 应用配置时回退到默认课程
 app._apply_config_to_api()
 check("留空时API回退默认课程", app.api.course_id == "2077931772737286146")

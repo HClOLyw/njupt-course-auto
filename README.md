@@ -1,245 +1,161 @@
-# 南邮在线课堂「刷课 + 考试」自动化脚本
+# 南邮课程学习自动化助手（GUI 版）
 
-> 本仓库主要针对 **南京邮电大学在线培训平台**（`https://study.njupt.edu.cn`）
-> 的自动化脚本：自动完成课程的 **视频 / PDF 学习进度**，并自动作答课程的 **在线考试**。
+> 覆盖两个平台：**南邮在线课堂**（新生教育 / study.njupt.edu.cn）与
+> **南邮实验室安全数字化教育平台**（实验室安全教育 / 10.22.192.38）。
+>
+> 基于开源项目 [njupt-course-auto](https://github.com/HClOLyw/njupt-course-auto) 二次开发的
+> **图形界面**版本，把刷课 / 查进度 / 考试三大功能封装成按钮，开箱即用。
 
 > ⚠️ **仅供本人账号自主学习 / 补课使用。**
-> 脚本通过调用平台真实接口模拟学习与答题，属于绕过平台"防挂机 / 防作弊"限制的行为，可能被平台判定为异常、存在账号风险。请自行评估，切勿用于批量处理他人账号或违反学校规定。本项目仅用于技术学习与交流，作者不承担任何因使用不当导致的后果。
+> 自动操作为绕过平台"防挂机 / 防作弊"限制的行为，可能被平台判定为异常、存在账号风险。
+> 请自行评估，切勿用于批量处理他人账号或违反学校规定。本项目仅用于技术学习与交流。
 
 ---
 
-## 特性
+## ✨ 功能
 
-- **仅依赖 Python 标准库**，无需 `pip install` 任何第三方包。
-- **自动刷课**：遍历课程全部知识点，模拟"完整观看视频 / 阅读 PDF"，逐个完成到 `100%`。
-- **自动考试**：读取试卷、逐题作答并提交，已实测 **满分 100 / 100**（合格线 90）。
-- **进度查询**：随时查看各知识点的真实完成状态。
-- **内置风控规避**：处理完一个知识点自动间隔，遇到「多窗口」风控自动等待重试。
-- **题库容错**：若考试题目不在内置题库内，会提示无法作答并中止，避免答错丢分。
-- **图形界面版**：内置 `njupt-gui/` 子目录，提供美观的 **GUI 客户端**（自动刷课 / 查进度 / 自动考试一键按钮操作），并附已打包的 **`njupt-gui/NJUPT课程助手.exe`**，Windows 双击即可使用，无需安装 Python。
+| 页面 / 按钮 | 说明 |
+|------|------|
+| 📊 首页概览 | 当前教育类型、双平台 Token / 课程 / 考试配置状态 |
+| ▶ 自动刷课 | （在线课堂）遍历课程全部知识点，模拟"完整观看视频 / 阅读 PDF"，逐个完成到 100% |
+| 📈 进度查询 | （在线课堂）查看每个知识点的真实完成状态、百分比（表格展示） |
+| ✍ 自动考试 | **教育类型可选**：实验室安全教育=按 Token 获取本账号考试并作答提交；新生教育=在线课堂内置题库默认考试（实测满分） |
+| 🧪 实验室安全 | 实验室平台刷课 / 查进度 / 自动考试 / 承诺书（下载模板 + 上传已签字件） |
+| ⚙ 参数设置 | 教育类型 + 双平台 Token / 课程 ID / 考试 ID / 间隔秒数 |
+| ℹ 关于说明 | 功能原理与免责声明 |
+
+界面特性：深色侧边导航 + 卡片式首页 + 圆角按钮 + 彩色运行日志（成功/警告/错误分色）+ 实时进度条。
 
 ---
 
-## 一、安装需要的东西（新手必看）
+## 🔀 教育类型（新增）
 
-这个项目只用到 **Python**，还需要一个能打开"终端/命令行"的工具。
+参数设置与考试页均提供「教育类型」下拉选择，两处共用同一设置、即时联动：
+
+| 模式 | 行为 |
+|------|------|
+| **实验室安全教育** | 输入实验室 Token 后**自动获取本账号的课程 / 考试**（不同账号课程不同也能正确拉取），无需填写课程 / 考试 ID；启动程序默认进入实验室页 |
+| **新生教育** | 保持原有行为：在线课堂，课程 / 考试 ID 留空时按默认安全教育课自动设置 |
+
+---
+
+## 🚀 快速开始（直接运行源码）
 
 ### 1. 安装 Python
 
-1. 打开官网下载页：<https://www.python.org/downloads/> ，下载最新的 Python 3（推荐 3.8 以上）。
-2. 运行安装包，**务必勾选底部的 `Add python to PATH`**，再点 `Install Now`。
-3. 安装完成后，打开"命令提示符"(cmd) 或 "PowerShell"（按 `Win 键` 输入 `cmd` 或 `PowerShell` 回车），输入：
-   ```bash
-   python --version
-   ```
-   能看到 `Python 3.x.x` 就说明装好了。
+- 官网下载 <https://www.python.org/downloads/>，安装时**务必勾选 Add python to PATH**（3.8 以上均可）。
 
-### 2. 安装 Git（可选，只用 `git clone` 拉代码才需要）
+### 2. 获取 Access-Token（两个平台）
 
-1. 下载安装：<https://git-scm.com/downloads> ，一路下一步即可。
-2. 装好后在命令行输入 `git --version` 能看到版本号即可。
+- **在线课堂**：登录 <https://study.njupt.edu.cn> → F12 → Application → Local Storage，复制键 `Access-Token` 的值（Token 约 7 天过期）。
+- **实验室平台**：登录 <http://10.22.192.38:9092>（校园内网）→ 同样复制 Local Storage 里的 `Access-Token`。
 
-> 如果你嫌麻烦，也可以**不装 Git**，直接看下文"方式二：下载 ZIP"。
+### 3. 启动程序
 
----
-
-## 二、获取本项目
-
-### 方式一：用 Git 克隆（推荐）
-
-打开命令行，进入你想存放的文件夹（例如 `cd Desktop`），然后执行：
-
-```bash
-git clone https://github.com/HClOLyw/njupt-course-auto.git
-cd njupt-course-auto
+```
+cd njupt-gui
+python njupt_gui.py
 ```
 
-### 方式二：下载 ZIP（不装 Git）
-
-1. 打开仓库页面 <https://github.com/HClOLyw/njupt-course-auto> 。
-2. 点绿色 **Code** 按钮 → **Download ZIP**。
-3. 解压到本地，进入解压后的文件夹。
+在 **参数设置** 页选择教育类型、粘贴对应 Token，点击 **保存配置**，然后到对应功能页点击按钮即可。
 
 ---
 
-## 三、项目中各文件是干嘛的
+## 📦 打包成独立 EXE（无需装 Python 运行）
 
-| 文件 | 作用 |
-|------|------|
-| `njupt_skip.py` | **刷课**：自动完成课程里所有视频 / PDF 知识点 |
-| `exam_submit.py` | **考试**：读取试卷、填答案、提交 |
-| `query_status.py` | **查进度**：查看每个知识点是否已学完 |
-| `config.json` | 你的**配置**（登录凭证、课程 ID 等），自带的 token 是空的 |
-| `config.example.json` | 配置模板，内容和 `config.json` 一样，参考用 |
-| `exam_questions.json` | 考试题目原文 + 选项 + 答案存档 |
-| `main.py` / `main_login.py` / `utils.py` | 上游"江苏省校园安全通"的历史脚本，与本平台无关，可忽略 |
-| `njupt-gui/` | **图形界面版**：GUI 客户端源码 + 可直接运行的 `NJUPT课程助手.exe`（详见该目录 README） |
+1. 双击运行 **build.bat**（自动安装 PyInstaller 并打包），或：
+2. 命令行执行：`python -m PyInstaller "NJUPT课程助手.spec" --noconfirm`
+3. 打包完成后，**dist 目录里的 NJUPT课程助手.exe** 即为可执行程序。
+
+> 说明：程序以 exe 同目录下的 config.json 读写配置，首次运行请先保存一次配置（会在 exe 目录生成）。
 
 ---
 
-## 四、使用教程（一步一步来）
-
-### 第 1 步：登录平台，拿到 Access-Token
-
-1. 用你自己的账号登录 <https://study.njupt.edu.cn> 。
-2. 在浏览器页面上按 **F12** 打开开发者工具（或右键 → 检查）。
-3. 找到顶部标签 **Application**（中文版叫"应用"）。
-4. 左侧找 **Local Storage / 本地存储**，点开 `https://study.njupt.edu.cn`。
-5. 在右侧列表里找到键名为 **`Access-Token`** 的那一行，复制它的**值**（一长串字符）。
-   - 也可以在任意接口请求的 **Headers** 里看到 `X-Access-Token` 字段，值是一样的。
-
-> Token 约 7 天过期。失效后，重新登录再复制一次即可。
-
-### 第 2 步：把 Token 填进 `config.json`
-
-用记事本或任意编辑器打开项目里的 **`config.json`**，把 `token` 改成你的 token：
-
-```json
-{
-  "token": "粘贴你的 Access-Token",
-  "tenant_id": "0",
-  "course_id": "2077931772737286146",
-  "interval_between": 6
-}
-```
-
-各字段含义：
+## ⚙ 配置说明
 
 | 字段 | 含义 |
 |------|------|
-| `token` | 第 1 步复制的 Access-Token（**需要填的就是这一个**） |
-| `tenant_id` | 租户号，一般保持 `"0"` 不用动 |
-| `course_id` | 你课程/考试对应的课程 ID，即播放页 URL 里 `?id=` 的值 |
-| `interval_between` | 每学完一个知识点后等待的秒数（越大越不容易触发风控，默认 6） |
+| edu_mode | 教育类型：`lab`=实验室安全教育（按 Token 自动获取课程/考试）；`freshman`=新生教育（在线课堂默认 ID） |
+| token | 在线课堂 Access-Token（新生教育模式使用） |
+| tenant_id | 在线课堂租户号，一般保持 "0" |
+| course_id | 在线课堂课程 ID（留空=默认安全教育课） |
+| exam_id | 在线课堂考试 ID（留空=默认） |
+| interval_between | 每学完一个知识点后等待的秒数（越大越不易触发风控，默认 6） |
+| lab_token | 实验室平台 Access-Token（安全教育模式使用，课程随账号自动获取） |
+| lab_base / lab_web | 实验室平台 API / Web 地址（留空使用默认 10.22.192.38:9090 / 9092） |
 
-> ⚠️ **重要**：仓库自带的 `config.json` 里 token 是**空的**（这是故意的，避免泄露）。请**只在你自己本地的 `config.json` 里填 token**，千万不要把填了真实 token 的文件提交/上传到任何地方。
+---
 
-### 第 3 步：刷课（自动完成视频 / PDF）
+## 🧪 实验室安全教育
 
-打开命令行，进入项目文件夹，然后运行：
+针对**南邮实验室安全数字化教育平台**（http://10.22.192.38:9092，后端 API 在
+http://10.22.192.38:9090/jeecg-boot，JeecgBoot 框架）：
 
-```bash
-python njupt_skip.py
+- **开始刷实验室课程**：按 Token 自动获取我的课程（`myCourseList`）→ 分段上报观看进度（`finishRate`）→
+  自动作答视频时间点弹出的题目（正确率实测 100%，答案由接口返回）→ 标记完成（`finish`）。课程随账号不同而变化。
+- **查询课程进度**：每门课的观看进度 / 已答总题数 / 答错题数 / 完成状态。
+- **自动考试**：按 Token 获取考试（`myExamList` → `startExam`）→ 先通过练习接口收集题库正确答案
+  （约 3300+ 题）→ 逐题作答 → 提交（`submitExam`）。题库外题目自动中止提交，避免答错丢分。
+- **承诺书**：考试前必须上传本人签字的《实验室安全承诺书》（平台强制要求）——一键下载模板、
+  打印签字、拍照后上传（`/sys/common/upload` → `updateMyInfo` 绑定）。
+
+---
+
+## 🔧 工作原理
+
+- **在线课堂**：GET `/app/study/course/info` 获取全部知识点 → POST `/app/study/my/course/start`
+  分段上报进度；考试 GET `/exam/app/examDetail/loadExamDetailList` → 填写答案 →
+  POST `/exam/app/examDetail/saverecords` 提交。认证：请求头 `X-Access-Token` + `tenant_id`。
+- **实验室平台**：认证 `X-Access-Token`（JeecgBoot）。课程=视频+时间点弹题，弹题答案直接由
+  `queryCourseQuestionRelaByMainId` 返回；进度按视频时长分段上报 `finishRate`，看完调用 `finish`。
+  考试答案收集自练习接口 `questions/queryListByType`（含 `correctAnswer`）。
+- 两者均仅依赖 Python 标准库（urllib + ssl），无第三方运行时依赖。
+
+---
+
+## 🗂 文件说明
+
+| 文件 | 作用 |
+|------|------|
+| njupt_gui.py | GUI 主程序（双击运行 / 打包入口） |
+| njupt_api.py | 在线课堂核心逻辑封装（刷课/查进度/考试 + HTTP + 题库） |
+| njupt_lab_api.py | 实验室安全教育平台核心逻辑封装（刷课/考试/题库答案收集/承诺书） |
+| probe_lab.py | 实验室平台联调探针（真实 token 打印各接口返回，用于校准字段） |
+| run_lab_learn.py | 实验室全课程后台刷课运行器（python run_lab_learn.py） |
+| config.json | 你的配置（登录凭证、课程 ID 等；勿提交含真实 token 的版本） |
+| exam_questions.json | 在线课堂考试题目原文 + 选项 + 答案存档 |
+| app_icon.ico / app_icon.png | 程序图标 |
+| make_icon.py | 图标生成脚本 |
+| build.bat / NJUPT课程助手.spec | 打包脚本 / PyInstaller 配置 |
+| self_test.py / e2e_test.py / e2e_default_test.py / e2e_lab_test.py | 自动化测试 |
+
+---
+
+## ✅ 测试
+
+```
+python self_test.py          # GUI 控件 / 页面切换 / 教育类型切换 / 配置读写
+python e2e_test.py           # 在线课堂刷课/查进度/考试（mock HTTP）
+python e2e_default_test.py   # 在线课堂 ID 留空自动回退行为
+python e2e_lab_test.py       # 实验室刷课/题库收集/考试/承诺书（mock HTTP）
 ```
 
-脚本会列出每个知识点并逐个上报学习进度到 `100%`，全程自动，无需干预。
-它默认每学完一个知识点会停几秒（`interval_between`），避开平台的"多窗口"风控。
-
-- 想更快可加 `--fast`：`python njupt_skip.py --fast`（更快但更易触发风控，不推荐）。
-
-### 第 4 步（可选）：查看学习进度
-
-想确认哪些知识点已经完成，运行：
-
-```bash
-python query_status.py
-```
-
-会显示每个知识点的完成状态、百分比。
-
-### 第 5 步：考试（自动作答并提交）
-
-课程学完后，运行：
-
-```bash
-python exam_submit.py
-```
-
-脚本会：取试卷 → 逐题填答案 → 提交 → 核对成绩。
-本仓库答案已实测 **满分 100 / 100**，合格线 90。
-提交前会先检查题目是否都在内置题库里；若发现**不在题库里的题**，会打印题目并中止。
-
-### 第 6 步：如果遇到题不在题库里怎么办
-
-> 平台的题目**可能会变化**。如果 `exam_submit.py` 提示"有题目不在题库内"，说明试卷换题了。此时脚本**不会强行作答**（避免答错丢分）。
-
-**解决办法**：
-1. 脚本会把这些题目的**原文和选项**打印出来。
-2. 用 **AI agent（比如 Claude Code / DSH / Codex 等）** 自行搜索这些题的答案。
-3. 把答案补进 `exam_submit.py` 里的 `ANSWERS` 字典，或更新 `exam_questions.json`。
-4. 重新运行 `python exam_submit.py`。
+测试全部通过（GUI 自检 + 3 个 e2e 套件），均无需真实网络。
 
 ---
 
-## 五、不想改 config.json 时
-
-也可以直接用**命令行参数**或**环境变量**提供 token（二选一即可）：
-
-```bash
-python njupt_skip.py --token=你的token --course=2077931772737286146
-python njupt_skip.py --fast
-
-# 或用环境变量
-set NJUPT_TOKEN=你的token        # Windows
-export NJUPT_TOKEN=你的token     # macOS / Linux
-```
-
----
-
-## 六、常见问题（FAQ）
-
-**Q1：`python` 不是内部或外部命令？**
-安装 Python 时没勾选 `Add python to PATH`。重新安装并勾选，或手动把 Python 加入环境变量。
-
-**Q2：提示 "未提供 Access-Token"？**
-说明 `config.json` 的 token 还是空的（或没填对），参考"第 1、2 步"重新复制、填写。
-
-**Q3：提示 "禁止多窗口同时观看"？**
-这是平台风控。脚本已内置等待与重试，一般会自己恢复；也可以把 `interval_between` 调大一点。
-
-**Q4：刷课/考试后没生效？**
-用 `python query_status.py` 看服务端真实进度（脚本"上报成功"并不等于一定计入，以平台实际为准）。
-
-**Q5：换了一门课 / 换学校怎么办？**
-把 `config.json` 里的 `course_id` 改成新课程的 ID；考试如换题，参考"第 6 步"补充答案。
-
----
-
-## 七、工作原理（调用平台真实接口，与浏览器行为一致）
-
-### 学习进度
-
-| 用途 | 方法 | 接口 |
-|------|------|------|
-| 获取课程详情（含全部知识点） | GET | `/service-api/app/study/course/info?id={courseId}` |
-| 上报学习进度 | POST | `/service-api/app/study/my/course/start` |
-
-完成判定：服务端累计已学时长 `finishHour`，当 `finishHour >= knowHour`（视频总秒数）时标记完成。
-所以脚本让 `playTime` 分段递增到 `knowHour`，最后一次 `end=1`。
-
-### 考试
-
-| 用途 | 方法 | 接口 |
-|------|------|------|
-| 取出试卷与题目 | GET | `/service-api/exam/app/examDetail/loadExamDetailList?examId=…` |
-| 提交答案 | POST | `/service-api/exam/app/examDetail/saverecords` |
-| 查询成绩 | GET | `/service-api/exam/app/examDetail/getExamResultDetail?erId=…` |
-
-答案格式：单选 `userAnswer = "B"`；多选 `userAnswer = ["A","C"]`。
-
-### 认证
-
-所有请求带请求头：`X-Access-Token: <你的Access-Token>` 与 `tenant_id: 0`。
-
----
-
-## 八、来源与致谢
-
-本项目是对开源项目 **[Scwizard/jiangsu-safety-platform-skip](https://github.com/Scwizard/jiangsu-safety-platform-skip)** 的**二次开发**。
-
-- **上游项目**：[Scwizard/jiangsu-safety-platform-skip](https://github.com/Scwizard/jiangsu-safety-platform-skip) ——《“2026 江苏省大学新生安全知识教育”一键完成脚本》
-- **原作者**：Scwizard（南京晓庄学院）
-- **上游许可证**：[Apache License 2.0](./LICENSE)（本项目保留该许可证）
-- **上游用途**：针对**江苏省校园安全通平台**（`wap.xiaoyuananquantong.com`）的刷课/刷题脚本。
-
-本仓库在原项目思路上二次开发为针对**南京邮电大学在线培训平台**（`study.njupt.edu.cn`）的刷课 + 考试脚本，并保留上游 `main.py` / `main_login.py` / `utils.py` 作为历史参考。感谢原作者 **Scwizard** 的开源贡献。
-
----
-
-## 九、注意事项与免责声明
+## ⚠️ 免责声明
 
 1. 请**只用于你本人的账号**，用于日常学习、补课。
-2. 自动化刷课/答题属于**绕过平台学习与考试要求**的行为，可能存在账号风险，请谨慎评估。
-3. `config.json` 里的 token 是敏感凭证，**请勿把填写了真实 token 的文件提交或上传到任何仓库**。
-4. 不同课程 / 学校的题库可能不同，换课请重新取题核对答案。
+2. 自动化刷课 / 答题属于**绕过平台学习与考试要求**的行为，可能存在账号风险，请谨慎评估。
+3. 配置文件里的 token 是敏感凭证，**请勿把填写了真实 token 的文件提交或上传到任何仓库**。
+4. 平台题目**可能变化**；换题后请补充题库再重试。
 5. 本项目仅供学习交流，请遵守学校与平台的有关规定。
+
+---
+
+## 🙏 致谢
+
+- 上游项目：HClOLyw/njupt-course-auto (https://github.com/HClOLyw/njupt-course-auto)
+- 上游上游：Scwizard/jiangsu-safety-platform-skip (https://github.com/Scwizard/jiangsu-safety-platform-skip)
+- 许可证：Apache License 2.0
