@@ -2,9 +2,10 @@
 __pycache__/
 *.py[cod]
 
-# PyInstaller 构建产物
+# PyInstaller 构建产物（build 中间产物忽略；dist 只跟踪打包好的 exe）
 build/
-dist/
+dist/*
+!dist/NJUPT课程助手.exe
 
 # 本地分析/运行临时文件
 _probe/
