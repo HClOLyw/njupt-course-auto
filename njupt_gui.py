@@ -569,27 +569,29 @@ class NJUPTApp(tk.Tk):
             values=EDU_MODE_LABELS)
         self.edu_mode_combo.pack(side="left", fill="x", expand=True, ipady=2)
         self.edu_mode_combo.bind("<<ComboboxSelected>>", self._on_edu_mode_change)
-        tk.Label(card, text=("安全教育 = 实验室平台(10.22.192.38)：输入实验室 Token 后自动获取"
-                             "本账号课程/考试，无需填写课程 ID；新生教育 = 在线课堂 "
-                             "(study.njupt.edu.cn)：课程/考试 ID 留空时按默认安全教育课自动设置。"),
-                 font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
-                 bg=COLORS["card"], wraplength=760, justify="left").pack(
-                     anchor="w", padx=20, pady=(4, 6))
+        self.mode_hint = tk.Label(
+            card, text="", font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
+            bg=COLORS["card"], wraplength=760, justify="left")
+        self.mode_hint.pack(anchor="w", padx=20, pady=(4, 6))
+
+        # 参数行容器：按教育类型动态显示对应平台的字段（同一时刻只显示一个平台的 Token）
+        self.rows_box = tk.Frame(card, bg=COLORS["card"])
+        self.rows_box.pack(fill="x")
 
         rows = [
-            ("token", "Access-Token (登录凭证)", True),
+            ("token", "Access-Token (在线课堂 study.njupt.edu.cn)", True),
             ("tenant_id", "租户号 tenant_id", False),
             ("course_id", "课程 ID（留空=默认安全教育课）", False),
             ("exam_id", "考试 ID（留空=默认）", False),
             ("interval_between", "知识点间隔秒数", False),
-            ("lab_token", "实验室 Token (10.22.192.38)", True),
+            ("lab_token", "Access-Token (实验室平台 10.22.192.38)", True),
             ("lab_base", "实验室 API 地址（留空=默认）", False),
             ("lab_web", "实验室 Web 地址（留空=默认）", False),
         ]
         self.entries = {}
-        for i, (key, label, is_secret) in enumerate(rows):
-            r = tk.Frame(card, bg=COLORS["card"])
-            r.pack(fill="x", padx=20, pady=(12, 4) if i else (18, 4))
+        self.setting_rows = {}
+        for key, label, is_secret in rows:
+            r = tk.Frame(self.rows_box, bg=COLORS["card"])
             tk.Label(r, text=label, font=("Microsoft YaHei UI", 10, "bold"),
                      fg=COLORS["text"], bg=COLORS["card"], width=24,
                      anchor="w").pack(side="left")
@@ -600,14 +602,12 @@ class NJUPTApp(tk.Tk):
                                          highlightbackground=COLORS["border"],
                                          fg=COLORS["text"])
             self.entries[key].pack(side="left", fill="x", expand=True, ipady=5)
+            self.setting_rows[key] = r
 
-        tk.Label(card, text=("Token 获取：登录平台后按 F12 → Application → Local Storage，"
-                             "复制 Access-Token 的值。Token 约 7 天过期。\n"
-                             "实验室 Token 获取：登录 http://10.22.192.38:9092 后，同样复制 "
-                             "Local Storage 里 Access-Token 的值填入。"),
-                 font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
-                 bg=COLORS["card"], wraplength=760, justify="left").pack(
-                     anchor="w", padx=20, pady=(8, 6))
+        self.token_tip = tk.Label(
+            card, text="", font=("Microsoft YaHei UI", 9), fg=COLORS["muted"],
+            bg=COLORS["card"], wraplength=760, justify="left")
+        self.token_tip.pack(anchor="w", padx=20, pady=(8, 6))
 
         act = tk.Frame(page, bg=COLORS["bg"])
         act.pack(fill="x", padx=30)
@@ -693,8 +693,40 @@ class NJUPTApp(tk.Tk):
             self._update_dashboard_info()
 
     def _apply_edu_mode_ui(self):
-        """根据当前模式调整考试页可见性：实验室模式无需填写考试 ID。"""
+        """按当前教育类型调整界面：
+        - 设置页只显示当前平台的参数字段（同一时刻只出现一个 Access-Token）
+        - 考试页：实验室模式无需填写考试 ID
+        """
         lab = self._edu_mode_code() == "lab"
+
+        # ---- 设置页字段动态显隐 ----
+        if hasattr(self, "setting_rows") and hasattr(self, "rows_box"):
+            visible = (["lab_token", "lab_base", "lab_web", "interval_between"]
+                       if lab else
+                       ["token", "tenant_id", "course_id", "exam_id", "interval_between"])
+            for row in self.setting_rows.values():
+                row.pack_forget()
+            for i, key in enumerate(visible):
+                row = self.setting_rows.get(key)
+                if row is not None:
+                    row.pack(fill="x", padx=20,
+                             pady=(18, 4) if i == 0 else (12, 4))
+        if hasattr(self, "mode_hint"):
+            self.mode_hint.configure(text=(
+                "当前：实验室安全教育 —— 只需填写实验室平台的 Access-Token，"
+                "课程 / 考试按该 Token 自动获取，无需填写课程 ID。"
+                if lab else
+                "当前：新生教育 —— 填写在线课堂的 Access-Token；"
+                "课程 / 考试 ID 留空即按默认安全教育课自动设置。"))
+        if hasattr(self, "token_tip"):
+            self.token_tip.configure(text=(
+                "实验室 Token 获取：登录 http://10.22.192.38:9092（校园内网）→ F12 → "
+                "Application → Local Storage → 复制 Access-Token 的值。"
+                if lab else
+                "在线课堂 Token 获取：登录 https://study.njupt.edu.cn → F12 → "
+                "Application → Local Storage → 复制 Access-Token 的值（约 7 天过期）。"))
+
+        # ---- 考试页 ----
         for attr, lab_text, fresh_text in (
             ("exam_id_label", "考试 ID（实验室模式按 Token 自动获取，无需填写）：",
              "考试 ID（留空 = 自动使用当前课程考试，默认安全教育考试）："),

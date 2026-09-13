@@ -64,6 +64,17 @@ check("实验室模式考试走Lab流程", len(started2) == 1 and started2[0] ==
 app._set_edu_mode_var("freshman")
 app._collect_config_from_form()
 check("切回教育类型=新生", app.config_data.get("edu_mode") == "freshman")
+
+# 设置页字段随教育类型动态显隐（同一时刻只显示一个平台的 Token）
+app._set_edu_mode_var("lab")
+app._apply_edu_mode_ui()
+check("实验室模式-显示实验室Token字段", app.setting_rows["lab_token"].winfo_manager() == "pack")
+check("实验室模式-隐藏在线课堂字段", app.setting_rows["token"].winfo_manager() == "")
+check("实验室模式-共用间隔字段仍在", app.setting_rows["interval_between"].winfo_manager() == "pack")
+app._set_edu_mode_var("freshman")
+app._apply_edu_mode_ui()
+check("新生模式-显示在线课堂字段", app.setting_rows["token"].winfo_manager() == "pack")
+check("新生模式-隐藏实验室字段", app.setting_rows["lab_token"].winfo_manager() == "")
 # 应用配置时回退到默认课程
 app._apply_config_to_api()
 check("留空时API回退默认课程", app.api.course_id == "2077931772737286146")
